@@ -32,27 +32,54 @@ const courses_data = [
   }
 ];
 
+// const coursesReducer = (state, action) => {
+  // switch(action.type) {
+    // case 'SET_COURSES':
+      // return action.payload;
+    // case 'REMOVE_COURSE':
+      // return state.filter(
+        // course => action.payload.id !== course.id
+      // )
+    // default: 
+      // throw new Error(); 
+  // }
+// };
+
 const coursesReducer = (state, action) => {
   switch(action.type) {
-    case 'SET_COURSES':
-      return action.payload;
-    case 'REMOVE_COURSE':
-      return state.filter(
-        course => action.payload.id !== course.id
-      )
-    default: 
-      throw new Error(); 
+    case 'FETCH_COURSE_START':
+    return {
+      ...state,
+      isLoading: true
+    };
+    case 'FETCH_COURSES_SUCCESS':
+      return{
+        ...state,
+        isLoading: false,
+        data: action.payload
+      };
+      case 'REMOVE_COURSE':
+        return{
+          ...state,
+          data: state.filter(
+            course => action.payload.id !== course.id
+          )
+        };
+      default:
+        throw new Error();
   }
-};
+}
 
 const App= () => { 
 
+  const STRAPI_API_ENDPOINT = 'http://localhost:1337/courses';
+
   const [courses, dispatchCourses] = useReducer(
     coursesReducer,
-    []
+    {data: [], isLoading: false}
   );
 
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading, setIsLoading] = useState(false);
 
   const [searchText, setSearchText] = useState(
     localStorage.getItem('searchText') || '' 
@@ -69,30 +96,32 @@ const App= () => {
     });
   }
 
-  const getCoursesAsync = () =>
-    new Promise(resolve =>
-      setTimeout(
-        () => resolve({courses: courses_data}),
-        2000
-      )
-    );
+ // const getCoursesAsync = () =>
+   // new Promise(resolve =>
+     // setTimeout(
+       // () => resolve({courses: courses_data}),
+       // 2000
+     // )
+    // );
 
     useEffect(() => {
-      setIsLoading(true);
-      getCoursesAsync().then(result => {
-        dispatchCourses({
-          type:'SET_COURSES',
-          payload: result.courses
-        });
-        setIsLoading(false);
-      })
+      dispatchCourses({type: 'FETCH_COURSES_START'});
+      fetch(STRAPI_API_ENDPOINT)
+        .then(response => response.json)
+        .then(result => {
+          dispatchCourses({
+            type: 'FETCH_COURSES_SUCCESS',
+            payload: result
+          });
+        })
+        .catch(() => console.log("Error fetching courses from back-end ..."));
     }, []);
   
     useEffect(() => {
     localStorage.setItem('searchText', searchText)
   }, [searchText]);
 
-  const filteredCourses= courses.filter(course => {
+  const filteredCourses= courses.data.filter(course => {
     return course.title.includes(searchText) || course.author.includes(searchText);
   });
 
@@ -103,7 +132,7 @@ const App= () => {
 
     <Search value={searchText} onSearch= {handleSearch} />
 
-      {isLoading ? (
+      {courses.isLoading ? (
         <p>Loading Courses ...</p>
       ) : (
         <CoursesList courses={filteredCourses} handleRemoveCourse={handleRemoveCourse} />
